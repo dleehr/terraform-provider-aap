@@ -31,6 +31,7 @@ func (a *eventDispatch) Schema(ctx context.Context, req action.SchemaRequest, re
 		Attributes: map[string]schema.Attribute{
 			"name": schema.StringAttribute{
 				Description: "Name of the event to dispatch",
+				Required:    true,
 			},
 		},
 	}

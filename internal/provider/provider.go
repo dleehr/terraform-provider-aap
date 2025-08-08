@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/hashicorp/terraform-plugin-framework/action"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
@@ -159,6 +160,12 @@ func (p *aapProvider) Resources(_ context.Context) []func() resource.Resource {
 		NewWorkflowJobResource,
 		NewGroupResource,
 		NewHostResource,
+	}
+}
+
+func (p *aapProvider) Actions(_ context.Context) []func() action.Action {
+	return []func() action.Action{
+		NewEventDispatch,
 	}
 }
 
