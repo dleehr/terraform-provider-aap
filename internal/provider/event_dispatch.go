@@ -1,11 +1,16 @@
 package provider
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-framework/action"
 	"github.com/hashicorp/terraform-plugin-framework/action/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -29,12 +34,58 @@ func (a *eventDispatch) Schema(ctx context.Context, req action.SchemaRequest, re
 	resp.Schema = schema.UnlinkedSchema{
 		Description: "Dispatches an event to AAP",
 		Attributes: map[string]schema.Attribute{
-			"name": schema.StringAttribute{
-				Description: "Name of the event to dispatch",
+			"limit": schema.StringAttribute{
+				Description: "Ansible limit for job execution",
 				Required:    true,
+			},
+			"job_template_id": schema.Int64Attribute{
+				Description: "Job Template ID",
+				Required:    true,
+			},
+			"inventory_id": schema.Int64Attribute{
+				Description: "Inventory ID",
+				Required:    true,
+			},
+			"event_stream_config": schema.SingleNestedAttribute{
+				Description: "Event Stream Configuration",
+				Required:    true,
+				Attributes: map[string]schema.Attribute{
+					"url": schema.StringAttribute{
+						Description: "URL",
+						Required:    true,
+						// Do we have sensitive for these attributes?
+					},
+					"username": schema.StringAttribute{
+						Description: "Username",
+						Required:    true,
+					},
+					"password": schema.StringAttribute{
+						Description: "Password",
+						Required:    true,
+					},
+				},
 			},
 		},
 	}
+}
+
+type eventStreamConfig struct {
+	Url      types.String `tfsdk:"url"`
+	Username types.String `tfsdk:"username"`
+	Password types.String `tfsdk:"password"`
+}
+
+type eventDispatchModel struct {
+	Limit             types.String      `tfsdk:"limit"`
+	JobTemplateId     types.Int64       `tfsdk:"job_template_id"`
+	InventoryId       types.Int64       `tfsdk:"inventory_id"`
+	EventStreamConfig eventStreamConfig `tfsdk:"event_stream_config"`
+}
+
+type payload struct {
+	JobTemplateID int64  `json:"job_template_id"`
+	Limit         string `json:"limit"`
+	InventoryID   int64  `json:"inventory_id"`
 }
 
 func (a *eventDispatch) Invoke(ctx context.Context, req action.InvokeRequest, resp *action.InvokeResponse) {
@@ -46,18 +97,49 @@ func (a *eventDispatch) Invoke(ctx context.Context, req action.InvokeRequest, re
 		return
 	}
 
-	eventDispatchName := config.Name.ValueString()
+	// eventDispatchLimit := config.Limit.ValueString()
+	// create a payload
+	sendPayload := &payload{
+		Limit:         config.Limit.ValueString(),
+		JobTemplateID: config.JobTemplateId.ValueInt64(),
+		InventoryID:   config.InventoryId.ValueInt64(),
+	}
 
+	jsonPayload, _ := json.Marshal(sendPayload)
+	reader := bytes.NewReader(jsonPayload)
+
+	url := config.EventStreamConfig.Url.ValueString()
 	resp.SendProgress(action.InvokeProgressEvent{
-		Message: fmt.Sprintf("\n\nDispatch the event: %q\n\n", eventDispatchName),
+		Message: fmt.Sprintf("\n About to POST event to %s \n\n", url),
 	})
 
+	contentType := "application/json"
+
+	// Create the request
+	hreq, err := http.NewRequest(http.MethodPost, url, reader)
+	if err != nil {
+		resp.Diagnostics.Append(diag.NewErrorDiagnostic("Error creating request", err.Error()))
+		return
+	}
+
+	hreq.Header.Set("Content-Type", contentType)
+	hreq.SetBasicAuth(config.EventStreamConfig.Username.ValueString(), config.EventStreamConfig.Password.ValueString())
+	client := &http.Client{}
+
+	hresp, err := client.Do(hreq)
+	if err != nil {
+		resp.Diagnostics.Append(diag.NewErrorDiagnostic("Error sending request", err.Error()))
+		return
+	}
+	defer hresp.Body.Close() // Close the response body when done
+
+	body, err := ioutil.ReadAll(hresp.Body)
+	if err != nil {
+		resp.Diagnostics.Append(diag.NewErrorDiagnostic("Error reading response body", err.Error()))
+		return
+	}
+
+	resp.SendProgress(action.InvokeProgressEvent{
+		Message: fmt.Sprintf("\n Sent to POST event to %s, response status %s, response body %s\n\n", url, hresp.Status, body),
+	})
 }
-
-type eventDispatchModel struct {
-	Name types.String `tfsdk:"name"`
-}
-
-// Invoke
-
-// model struct
