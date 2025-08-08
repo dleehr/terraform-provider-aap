@@ -38,12 +38,20 @@ func (a *eventDispatch) Schema(ctx context.Context, req action.SchemaRequest, re
 				Description: "Ansible limit for job execution",
 				Required:    true,
 			},
-			"job_template_id": schema.Int64Attribute{
-				Description: "Job Template ID",
+			"template_type": schema.StringAttribute{
+				Description: "Template type: job or workflow_job",
 				Required:    true,
 			},
-			"inventory_id": schema.Int64Attribute{
-				Description: "Inventory ID",
+			"job_template_name": schema.StringAttribute{
+				Description: "Job Template Name",
+				Optional:    true,
+			},
+			"workflow_job_template_name": schema.StringAttribute{
+				Description: "Workflow Job Template Name",
+				Optional:    true,
+			},
+			"organization_name": schema.StringAttribute{
+				Description: "Organization Name",
 				Required:    true,
 			},
 			"event_stream_config": schema.SingleNestedAttribute{
@@ -76,16 +84,20 @@ type eventStreamConfig struct {
 }
 
 type eventDispatchModel struct {
-	Limit             types.String      `tfsdk:"limit"`
-	JobTemplateId     types.Int64       `tfsdk:"job_template_id"`
-	InventoryId       types.Int64       `tfsdk:"inventory_id"`
-	EventStreamConfig eventStreamConfig `tfsdk:"event_stream_config"`
+	Limit                   types.String      `tfsdk:"limit"`
+	TemplateType            types.String      `tfsdk:"template_type"`
+	JobTemplateName         types.String      `tfsdk:"job_template_name"`
+	WorkflowJobTemplateName types.String      `tfsdk:"workflow_job_template_name"`
+	OrganizationName        types.String      `tfsdk:"organization_name"`
+	EventStreamConfig       eventStreamConfig `tfsdk:"event_stream_config"`
 }
 
 type payload struct {
-	JobTemplateID int64  `json:"job_template_id"`
-	Limit         string `json:"limit"`
-	InventoryID   int64  `json:"inventory_id"`
+	Limit                   string `json:"limit"`
+	TemplateType            string `json:"template_type"`
+	JobTemplateName         string `json:"job_template_name"`
+	WorkflowJobTemplateName string `json:"workflow_job_template_name"`
+	OrganizationName        string `json:"organization_name"`
 }
 
 func (a *eventDispatch) Invoke(ctx context.Context, req action.InvokeRequest, resp *action.InvokeResponse) {
@@ -97,12 +109,12 @@ func (a *eventDispatch) Invoke(ctx context.Context, req action.InvokeRequest, re
 		return
 	}
 
-	// eventDispatchLimit := config.Limit.ValueString()
-	// create a payload
 	sendPayload := &payload{
-		Limit:         config.Limit.ValueString(),
-		JobTemplateID: config.JobTemplateId.ValueInt64(),
-		InventoryID:   config.InventoryId.ValueInt64(),
+		TemplateType:            config.TemplateType.ValueString(),
+		JobTemplateName:         config.JobTemplateName.ValueString(),
+		WorkflowJobTemplateName: config.WorkflowJobTemplateName.ValueString(),
+		OrganizationName:        config.OrganizationName.ValueString(),
+		Limit:                   config.Limit.ValueString(),
 	}
 
 	jsonPayload, _ := json.Marshal(sendPayload)
