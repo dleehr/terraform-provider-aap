@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"path"
 	"strings"
 
@@ -28,8 +29,9 @@ type EventStreamDataSource struct {
 }
 
 type EventStreamDataSourceModel struct {
-	ID  types.Int64  `tfsdk:"id"`
-	URL types.String `tfsdk:"url"`
+	ID   types.Int64  `tfsdk:"id"`
+	Name types.String `tfsdk:"name"`
+	URL  types.String `tfsdk:"url"`
 }
 
 func (d *EventStreamDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -39,10 +41,13 @@ func (d *EventStreamDataSource) Metadata(ctx context.Context, req datasource.Met
 func (d *EventStreamDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			"id": schema.Int64Attribute{
+			"name": schema.StringAttribute{
 				Required: true,
 			},
 			"url": schema.StringAttribute{
+				Computed: true,
+			},
+			"id": schema.Int64Attribute{
 				Computed: true,
 			},
 		},
@@ -80,23 +85,36 @@ func (d *EventStreamDataSource) Configure(ctx context.Context, req datasource.Co
 
 // JSON for the data source
 type EventStreamAPIModel struct {
-	Id  int64  `json:"id"`
-	URL string `json:"url"`
+	Name string `json:"name"`
+	Id   int64  `json:"id"`
+	URL  string `json:"url"`
 }
 
-func (d *EventStreamDataSourceModel) ParseHttpResponse(body []byte) diag.Diagnostics {
+type EventStreamAPIModelList struct {
+	Results []EventStreamAPIModel `json:"results"`
+}
+
+func (d *EventStreamDataSourceModel) ParseHttpResponseList(body []byte) diag.Diagnostics {
 	var diags diag.Diagnostics
 
 	// Unmarshal the JSON response
-	var apiModel EventStreamAPIModel
-	err := json.Unmarshal(body, &apiModel)
+	var apiModelList EventStreamAPIModelList
+	err := json.Unmarshal(body, &apiModelList)
 	if err != nil {
 		diags.AddError("Error parsing JSON response from AAP", err.Error())
 		return diags
 	}
 
-	d.ID = types.Int64Value((apiModel.Id))
+	if len(apiModelList.Results) != 1 {
+		diags.AddError("Unable to fetch event_stream from AAP", fmt.Sprintf("Expected 1 object in JSON response, found %d", len(apiModelList.Results)))
+		return diags
+	}
+
+	var apiModel = apiModelList.Results[0]
+
+	d.ID = types.Int64Value(apiModel.Id)
 	d.URL = ParseStringValue(apiModel.URL)
+	d.Name = ParseStringValue(apiModel.Name)
 	return diags
 }
 
@@ -108,14 +126,25 @@ func (d *EventStreamDataSource) Read(ctx context.Context, req datasource.ReadReq
 
 	edaEndpoint := strings.Replace(d.client.getApiEndpoint(), "controller/v2", "eda/v1", 1)
 
-	resourceURL := path.Join(edaEndpoint, "event-streams", fmt.Sprint(state.ID.ValueInt64()))
-	readResponseBody, diags := d.client.Get(resourceURL)
+	// resourceURL := path.Join(edaEndpoint, "event-streams", fmt.Sprint(state.ID.ValueInt64()))
+	// queryURL := path.Join(edaEndpoint, fmt.Sprint("event-streams?name=", state.Name.String()))
+	url := path.Join(edaEndpoint, "event-streams")
+	// queryURL := fmt.Sprint(url, "?name=", state.Name.ValueString())
+
+	// Look up by name and org, this will return a list and we assume the first is valid
+	// readResponseBody, diags := d.client.Get(queryURL)
+	var query = map[string]string{
+		"name": state.Name.ValueString(),
+	}
+	response, body, err := d.client.doRequest(http.MethodGet, url, query, nil)
+	diags := ValidateResponse(response, body, err, []int{http.StatusOK})
+
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	diags = state.ParseHttpResponse(readResponseBody)
+	diags = state.ParseHttpResponseList(body)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
