@@ -17,7 +17,8 @@ import (
 
 // Ensure the implementation satisfies the expected interfaces.
 var (
-	_ provider.Provider = &aapProvider{}
+	_ provider.Provider            = &aapProvider{}
+	_ provider.ProviderWithActions = &aapProvider{}
 )
 
 // New is a helper function to simplify provider server and testing implementation.
