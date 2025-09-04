@@ -3,6 +3,7 @@ package provider
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -12,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/action/schema"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
 var (
@@ -63,6 +65,9 @@ func (a *eventDispatch) Schema(ctx context.Context, req action.SchemaRequest, re
 						Required:    true,
 						// Do we have sensitive for these attributes?
 					},
+					"insecure_skip_verify": schema.BoolAttribute{
+						Optional: true,
+					},
 					"username": schema.StringAttribute{
 						Description: "Username",
 						Required:    true,
@@ -78,9 +83,10 @@ func (a *eventDispatch) Schema(ctx context.Context, req action.SchemaRequest, re
 }
 
 type eventStreamConfig struct {
-	Url      types.String `tfsdk:"url"`
-	Username types.String `tfsdk:"username"`
-	Password types.String `tfsdk:"password"`
+	Url                types.String `tfsdk:"url"`
+	Username           types.String `tfsdk:"username"`
+	Password           types.String `tfsdk:"password"`
+	InsecureSkipVerify types.Bool   `tfsdk:"insecure_skip_verify"`
 }
 
 type eventDispatchModel struct {
@@ -136,7 +142,14 @@ func (a *eventDispatch) Invoke(ctx context.Context, req action.InvokeRequest, re
 
 	hreq.Header.Set("Content-Type", contentType)
 	hreq.SetBasicAuth(config.EventStreamConfig.Username.ValueString(), config.EventStreamConfig.Password.ValueString())
-	client := &http.Client{}
+
+	insecureSkipVerify := config.EventStreamConfig.InsecureSkipVerify.ValueBool()
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureSkipVerify},
+	}
+	tflog.Debug(ctx, fmt.Sprintf("action post, insecure skip verify: %v", insecureSkipVerify))
+	client := &http.Client{Transport: tr}
 
 	hresp, err := client.Do(hreq)
 	if err != nil {
