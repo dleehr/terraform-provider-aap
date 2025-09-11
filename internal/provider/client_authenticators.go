@@ -61,11 +61,14 @@ func NewTokenAuthenticator(token *string, prefix *string, header *string) (*AAPC
 			"Missing token",
 			"Unable to create a token authenticator without token")
 	}
+	defaultHeader := "Authorization"
+	defaultPrefix := "Bearer"
+
 	if header == nil {
-		*header = "Authorization"
+		header = &defaultHeader
 	}
 	if prefix == nil {
-		*prefix = "Bearer"
+		prefix = &defaultPrefix
 	}
 
 	if diags.HasError() {
