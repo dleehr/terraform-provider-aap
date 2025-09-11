@@ -54,8 +54,11 @@ func testMethodResource(method string, urlPath string) ([]byte, error) {
 	}
 	username := os.Getenv("AAP_USERNAME")
 	password := os.Getenv("AAP_PASSWORD")
-
-	client, diags := NewClient(host, &username, &password, true, 0)
+	authenticator, diags := NewBasicAuthenticator(&username, &password)
+	if diags.HasError() {
+		return nil, fmt.Errorf("%v", diags.Errors())
+	}
+	client, diags := NewClient(host, authenticator, true, 0)
 	if diags.HasError() {
 		return nil, fmt.Errorf("%v", diags.Errors())
 	}

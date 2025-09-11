@@ -119,6 +119,7 @@ func (p *aapProvider) Configure(ctx context.Context, req provider.ConfigureReque
 		AddConfigurationAttributeError(resp, "host", "AAP_HOSTNAME", false)
 	}
 
+	// TODO: handle different auth types here, and we also have error checking further down
 	if len(username) == 0 {
 		AddConfigurationAttributeError(resp, "username", "AAP_USERNAME", false)
 	}
@@ -132,7 +133,10 @@ func (p *aapProvider) Configure(ctx context.Context, req provider.ConfigureReque
 	}
 
 	// Create a new http client using the configuration values
-	client, diags := NewClient(host, &username, &password, insecureSkipVerify, timeout)
+	// Assume basic auth for now
+	authenticator, diags := NewBasicAuthenticator(&username, &password)
+	resp.Diagnostics.Append(diags...)
+	client, diags := NewClient(host, authenticator, insecureSkipVerify, timeout)
 	resp.Diagnostics.Append(diags...)
 
 	// Make the http client available during DataSource and Resource

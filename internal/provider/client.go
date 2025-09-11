@@ -27,13 +27,88 @@ type ProviderHTTPClient interface {
 	getApiEndpoint() string
 }
 
+type AAPClientAuthenticator interface {
+	Configure(*http.Request)
+}
+
+// Basic authenticator supports username/password auth
+type AAPClientBasicAuthenticator struct {
+	username string
+	password string
+}
+
+// Should this return a pointer to a struct or should it return an interface?
+// "Accept interfaces, return structs"
+func NewBasicAuthenticator(username *string, password *string) (*AAPClientBasicAuthenticator, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if username == nil {
+		diags.AddError(
+			"Missing username",
+			"Unable to create a basic authenticator without username")
+	}
+	if password == nil {
+		diags.AddError(
+			"Missing password",
+			"Unable to create a basic authenticator without password")
+	}
+	if diags.HasError() {
+		return nil, diags
+	}
+	return &AAPClientBasicAuthenticator{
+		username: *username,
+		password: *password,
+	}, nil
+}
+
+func (a *AAPClientBasicAuthenticator) Configure(req *http.Request) {
+	// To configure basic auth, we can just use http.Request's SetBasicAuth
+	req.SetBasicAuth(a.username, a.password)
+}
+
+// Token authenticator supports Token auth
+type AAPClientTokenAuthenticator struct {
+	token  string // Required
+	prefix string // Optional, defaults to "Bearer"
+	header string // Optional, defaults to "Authorization"
+	// Do we need a refresh token?
+}
+
+func NewTokenAuthenticator(token *string, prefix *string, header *string) (*AAPClientTokenAuthenticator, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if token == nil {
+		// token must be supplied. If not, that's an error
+		diags.AddError(
+			"Missing token",
+			"Unable to create a token authenticator without token")
+	}
+	if header == nil {
+		*header = "Authorization"
+	}
+	if prefix == nil {
+		*prefix = "Bearer"
+	}
+
+	if diags.HasError() {
+		return nil, diags
+	}
+
+	return &AAPClientTokenAuthenticator{
+		token:  *token,
+		prefix: *prefix,
+		header: *header,
+	}, nil
+}
+
+func (a *AAPClientTokenAuthenticator) Configure(req *http.Request) {
+	req.Header.Set(a.header, fmt.Sprintf("%s %s", a.prefix, a.token))
+}
+
 // Client -
 type AAPClient struct {
-	HostURL     string
-	Username    *string
-	Password    *string
-	httpClient  *http.Client
-	ApiEndpoint string
+	HostURL       string
+	Authenticator AAPClientAuthenticator
+	httpClient    *http.Client
+	ApiEndpoint   string
 }
 
 type AAPApiEndpointResponse struct {
@@ -80,12 +155,11 @@ func readApiEndpoint(client ProviderHTTPClient) (string, diag.Diagnostics) {
 }
 
 // NewClient - create new AAPClient instance
-func NewClient(host string, username *string, password *string, insecureSkipVerify bool, timeout int64) (*AAPClient, diag.Diagnostics) {
+func NewClient(host string, authenticator AAPClientAuthenticator, insecureSkipVerify bool, timeout int64) (*AAPClient, diag.Diagnostics) {
 	hostURL, _ := url.JoinPath(host, "/")
 	client := AAPClient{
-		HostURL:  hostURL,
-		Username: username,
-		Password: password,
+		HostURL:       hostURL,
+		Authenticator: authenticator,
 	}
 
 	tr := &http.Transport{
@@ -122,8 +196,8 @@ func (c *AAPClient) doRequest(method string, path string, data io.Reader) (*http
 	if err != nil {
 		return nil, []byte{}, err
 	}
-	if c.Username != nil && c.Password != nil {
-		req.SetBasicAuth(*c.Username, *c.Password)
+	if c.Authenticator != nil {
+		c.Authenticator.Configure(req)
 	}
 
 	req.Header.Set("Accept", "application/json")
