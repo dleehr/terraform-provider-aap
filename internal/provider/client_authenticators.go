@@ -47,13 +47,10 @@ func (a *AAPClientBasicAuthenticator) Configure(req *http.Request) {
 
 // Token authenticator supports Token auth
 type AAPClientTokenAuthenticator struct {
-	token  string // Required
-	prefix string // Optional, defaults to "Bearer"
-	header string // Optional, defaults to "Authorization"
-	// Do we need a refresh token?
+	token string // Required
 }
 
-func NewTokenAuthenticator(token *string, prefix *string, header *string) (*AAPClientTokenAuthenticator, diag.Diagnostics) {
+func NewTokenAuthenticator(token *string) (*AAPClientTokenAuthenticator, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if token == nil {
 		// token must be supplied. If not, that's an error
@@ -61,27 +58,18 @@ func NewTokenAuthenticator(token *string, prefix *string, header *string) (*AAPC
 			"Missing token",
 			"Unable to create a token authenticator without token")
 	}
-	defaultHeader := "Authorization"
-	defaultPrefix := "Bearer"
-
-	if header == nil {
-		header = &defaultHeader
-	}
-	if prefix == nil {
-		prefix = &defaultPrefix
-	}
 
 	if diags.HasError() {
 		return nil, diags
 	}
 
 	return &AAPClientTokenAuthenticator{
-		token:  *token,
-		prefix: *prefix,
-		header: *header,
+		token: *token,
 	}, nil
 }
 
 func (a *AAPClientTokenAuthenticator) Configure(req *http.Request) {
-	req.Header.Set(a.header, fmt.Sprintf("%s %s", a.prefix, a.token))
+	header := "Authorization"
+	prefix := "Bearer"
+	req.Header.Set(header, fmt.Sprintf("%s %s", prefix, a.token))
 }

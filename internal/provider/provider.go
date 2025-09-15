@@ -57,6 +57,10 @@ func (p *aapProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *
 				Optional:  true,
 				Sensitive: true,
 			},
+			"token": schema.StringAttribute{
+				Optional:  true,
+				Sensitive: true,
+			},
 			"insecure_skip_verify": schema.BoolAttribute{
 				Optional: true,
 			},
@@ -105,10 +109,10 @@ func (p *aapProvider) Configure(ctx context.Context, req provider.ConfigureReque
 		return
 	}
 
-	var host, username, password string
+	var host, username, password, token string
 	var insecureSkipVerify bool
 	var timeout int64
-	config.ReadValues(&host, &username, &password, &insecureSkipVerify, &timeout, resp)
+	config.ReadValues(&host, &username, &password, &token, &insecureSkipVerify, &timeout, resp)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -120,13 +124,17 @@ func (p *aapProvider) Configure(ctx context.Context, req provider.ConfigureReque
 		AddConfigurationAttributeError(&resp.Diagnostics, "host", "AAP_HOSTNAME", false)
 	}
 
-	// TODO: handle different auth types here, and we also have error checking further down
-	if len(username) == 0 {
-		AddConfigurationAttributeError(&resp.Diagnostics, "username", "AAP_USERNAME", false)
-	}
-
-	if len(password) == 0 {
-		AddConfigurationAttributeError(&resp.Diagnostics, "password", "AAP_PASSWORD", false)
+	if len(token) == 0 && len(username) == 0 && len(password) == 0 {
+		// No authentication method at all, fail with token recommendation
+		AddConfigurationAttributeError(&resp.Diagnostics, "token", "AAP_TOKEN", false)
+	} else if len(token) == 0 {
+		// No token but must have either username or password here. Check them and add error if either is missing
+		if len(username) == 0 {
+			AddConfigurationAttributeError(&resp.Diagnostics, "username", "AAP_USERNAME", false)
+		}
+		if len(password) == 0 {
+			AddConfigurationAttributeError(&resp.Diagnostics, "password", "AAP_PASSWORD", false)
+		}
 	}
 
 	if resp.Diagnostics.HasError() {
@@ -134,8 +142,12 @@ func (p *aapProvider) Configure(ctx context.Context, req provider.ConfigureReque
 	}
 
 	// Create a new http client using the configuration values
-	// Assume basic auth for now
-	authenticator, diags := NewBasicAuthenticator(&username, &password)
+	var authenticator AAPClientAuthenticator
+	if len(token) > 0 {
+		authenticator, diags = NewTokenAuthenticator(&token)
+	} else {
+		authenticator, diags = NewBasicAuthenticator(&username, &password)
+	}
 	resp.Diagnostics.Append(diags...)
 	client, diags := NewClient(host, authenticator, insecureSkipVerify, timeout)
 	resp.Diagnostics.Append(diags...)
@@ -172,6 +184,7 @@ type aapProviderModel struct {
 	Host               types.String `tfsdk:"host"`
 	Username           types.String `tfsdk:"username"`
 	Password           types.String `tfsdk:"password"`
+	Token              types.String `tfsdk:"token"`
 	InsecureSkipVerify types.Bool   `tfsdk:"insecure_skip_verify"`
 	Timeout            types.Int64  `tfsdk:"timeout"`
 }
@@ -189,6 +202,10 @@ func (p *aapProviderModel) checkUnknownValue(diags *diag.Diagnostics) {
 		AddConfigurationAttributeError(diags, "password", "AAP_PASSWORD", true)
 	}
 
+	if p.Token.IsUnknown() {
+		AddConfigurationAttributeError(diags, "token", "AAP_TOKEN", true)
+	}
+
 	if p.InsecureSkipVerify.IsUnknown() {
 		AddConfigurationAttributeError(diags, "insecure_skip_verify", "AAP_INSECURE_SKIP_VERIFY", true)
 	}
@@ -203,7 +220,7 @@ const (
 	DefaultInsecureSkipVerify = false // Default value for insecure skip verify
 )
 
-func (p *aapProviderModel) ReadValues(host, username, password *string, insecureSkipVerify *bool,
+func (p *aapProviderModel) ReadValues(host, username, password *string, token *string, insecureSkipVerify *bool,
 	timeout *int64, resp *provider.ConfigureResponse) {
 	// Set default values from env variables
 
@@ -214,6 +231,7 @@ func (p *aapProviderModel) ReadValues(host, username, password *string, insecure
 	}
 	*username = os.Getenv("AAP_USERNAME")
 	*password = os.Getenv("AAP_PASSWORD")
+	*token = os.Getenv("AAP_TOKEN")
 
 	*insecureSkipVerify = DefaultInsecureSkipVerify
 	var err error
@@ -229,6 +247,29 @@ func (p *aapProviderModel) ReadValues(host, username, password *string, insecure
 	// Read password from user configuration
 	if !p.Password.IsNull() {
 		*password = p.Password.ValueString()
+	}
+
+	// Read token from user configuration
+	if !p.Token.IsNull() {
+		*token = p.Token.ValueString()
+	}
+
+	// If token is provided, report a warning if username or password are provided
+	if !p.Token.IsNull() {
+		if !p.Username.IsNull() {
+			resp.Diagnostics.AddAttributeWarning(
+				path.Root("username"),
+				"Inconsistent configuration for username",
+				"When token is configured for authentication, username will be ignored. Please remove username from your configuration.",
+			)
+		}
+		if !p.Password.IsNull() {
+			resp.Diagnostics.AddAttributeWarning(
+				path.Root("username"),
+				"Inconsistent configuration for password",
+				"When token is configured for authentication, password will be ignored. Please remove passworf from your configuration",
+			)
+		}
 	}
 
 	if !p.InsecureSkipVerify.IsNull() {

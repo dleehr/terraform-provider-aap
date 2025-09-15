@@ -63,7 +63,7 @@ func TestBasicAuthenticatorConfigure(t *testing.T) {
 	req, _ := http.NewRequest("", "", strings.NewReader(""))
 	auth.Configure(req)
 	actual := req.Header["Authorization"][0]
-	expected := "Basic dXNlcm5hbWU6cGFzc3dvcmQ=" // username:password in base64
+	expected := "Basic dXNlcm5hbWU6cGFzc3dvcmQ=" // base64 encoding of string "username:password"
 	if actual != expected {
 		t.Errorf("Expected (%s) not equal to actual (%s)", expected, actual)
 	}
@@ -71,47 +71,25 @@ func TestBasicAuthenticatorConfigure(t *testing.T) {
 
 func TestNewTokenAuthenticator(t *testing.T) {
 	testToken := "testtoken"
-	testHeader := "testheader"
-	testPrefix := "testprefix"
 	var testTable = []struct {
 		name          string
 		token         *string
-		prefix        *string
-		header        *string
 		expectSuccess bool
 	}{
 		{
-			name:          "Success when token is provided and prefix/header are nil",
+			name:          "Success when token is provided",
 			token:         &testToken,
-			prefix:        nil,
-			header:        nil,
 			expectSuccess: true,
 		},
 		{
-			name:          "Success when token, prefix, and header are provided",
-			token:         &testToken,
-			prefix:        &testPrefix,
-			header:        &testHeader,
-			expectSuccess: true,
-		},
-		{
-			name:          "Failure when token is nil and prefix/header are provided",
+			name:          "Failure when token is nil ",
 			token:         nil,
-			prefix:        &testPrefix,
-			header:        &testHeader,
-			expectSuccess: false,
-		},
-		{
-			name:          "Failure when token, prefix, and header are nil",
-			token:         nil,
-			prefix:        nil,
-			header:        nil,
 			expectSuccess: false,
 		},
 	}
 	for _, test := range testTable {
 		t.Run(test.name, func(t *testing.T) {
-			auth, diags := NewTokenAuthenticator(test.token, test.prefix, test.header)
+			auth, diags := NewTokenAuthenticator(test.token)
 			if test.expectSuccess {
 				if auth == nil {
 					t.Errorf("Expected NewTokenAuthenticator result to be defined, failed with %v", diags)
@@ -127,38 +105,24 @@ func TestNewTokenAuthenticator(t *testing.T) {
 
 func TestTokenAuthenticatorConfigure(t *testing.T) {
 	testToken := "testtoken"
-	testPrefix := "Token"
-	testHeader := "Authorizationtest"
 
 	var testTable = []struct {
 		name         string
 		token        *string
-		prefix       *string
-		header       *string
 		expectHeader string
 		expectValue  string
 	}{
 		{
 			name:         "Configure defaults header to Authorization: Bearer ...",
 			token:        &testToken,
-			prefix:       nil,
-			header:       nil,
 			expectHeader: "Authorization",
 			expectValue:  "Bearer testtoken",
-		},
-		{
-			name:         "Configure honors prefix and header",
-			token:        &testToken,
-			prefix:       &testPrefix,
-			header:       &testHeader,
-			expectHeader: "Authorizationtest",
-			expectValue:  "Token testtoken",
 		},
 	}
 
 	for _, test := range testTable {
 		t.Run(test.name, func(t *testing.T) {
-			auth, _ := NewTokenAuthenticator(test.token, test.prefix, test.header)
+			auth, _ := NewTokenAuthenticator(test.token)
 			req, _ := http.NewRequest("", "", strings.NewReader(""))
 			auth.Configure(req)
 			actual := req.Header[test.expectHeader][0]

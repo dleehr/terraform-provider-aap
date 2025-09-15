@@ -221,7 +221,7 @@ func TestReadValues(t *testing.T) {
 	}
 	for _, tc := range testTable {
 		t.Run(tc.name, func(t *testing.T) {
-			var host, username, password string
+			var host, username, password, token string
 			var insecureSkipVerify bool
 			var timeout int64
 			var resp provider.ConfigureResponse
@@ -234,7 +234,7 @@ func TestReadValues(t *testing.T) {
 				}
 			}
 			// ReadValues()
-			tc.config.ReadValues(&host, &username, &password, &insecureSkipVerify, &timeout, &resp)
+			tc.config.ReadValues(&host, &username, &password, &token, &insecureSkipVerify, &timeout, &resp)
 			if tc.Errors != resp.Diagnostics.ErrorsCount() {
 				t.Errorf("Errors count expected=(%d) - found=(%d)", tc.Errors, resp.Diagnostics.ErrorsCount())
 			} else if tc.Errors == 0 {
@@ -384,6 +384,7 @@ func TestConfigure(t *testing.T) {
 				"host":                 tftypes.NewValue(tftypes.String, ""),
 				"username":             tftypes.NewValue(tftypes.String, "username"),
 				"password":             tftypes.NewValue(tftypes.String, "password"),
+				"token":                tftypes.NewValue(tftypes.String, ""),
 				"insecure_skip_verify": tftypes.NewValue(tftypes.Bool, false),
 				"timeout":              tftypes.NewValue(tftypes.Number, 30),
 			},
@@ -397,6 +398,7 @@ func TestConfigure(t *testing.T) {
 				"host":                 tftypes.NewValue(tftypes.String, "http://localhost"),
 				"username":             tftypes.NewValue(tftypes.String, ""),
 				"password":             tftypes.NewValue(tftypes.String, "password"),
+				"token":                tftypes.NewValue(tftypes.String, ""),
 				"insecure_skip_verify": tftypes.NewValue(tftypes.Bool, false),
 				"timeout":              tftypes.NewValue(tftypes.Number, 30),
 			},
@@ -410,6 +412,7 @@ func TestConfigure(t *testing.T) {
 				"host":                 tftypes.NewValue(tftypes.String, "http://localhost"),
 				"username":             tftypes.NewValue(tftypes.String, "username"),
 				"password":             tftypes.NewValue(tftypes.String, ""),
+				"token":                tftypes.NewValue(tftypes.String, ""),
 				"insecure_skip_verify": tftypes.NewValue(tftypes.Bool, false),
 				"timeout":              tftypes.NewValue(tftypes.Number, 30),
 			},
@@ -435,6 +438,7 @@ func TestConfigure(t *testing.T) {
 					"host":                 tftypes.String,
 					"username":             tftypes.String,
 					"password":             tftypes.String,
+					"token":                tftypes.String,
 					"insecure_skip_verify": tftypes.Bool,
 					"timeout":              tftypes.Number,
 				},
