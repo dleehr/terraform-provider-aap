@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
@@ -68,9 +69,9 @@ func (p *aapProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *
 	}
 }
 
-func AddConfigurationAttributeError(resp *provider.ConfigureResponse, name, envName string, isUnknown bool) {
+func AddConfigurationAttributeError(diags *diag.Diagnostics, name, envName string, isUnknown bool) {
 	if isUnknown {
-		resp.Diagnostics.AddAttributeError(
+		diags.AddAttributeError(
 			path.Root(name),
 			"Unknown AAP API "+name,
 			fmt.Sprintf("The provider cannot create the AAP API client as there is an unknown configuration value for the AAP API %s. "+
@@ -78,7 +79,7 @@ func AddConfigurationAttributeError(resp *provider.ConfigureResponse, name, envN
 				" or use the %s environment variable.", name, envName),
 		)
 	} else {
-		resp.Diagnostics.AddAttributeError(
+		diags.AddAttributeError(
 			path.Root(name),
 			"Missing AAP API "+name,
 			fmt.Sprintf("The provider cannot create the AAP API client as there is a missing or empty value for the AAP API %s. "+
@@ -116,16 +117,16 @@ func (p *aapProvider) Configure(ctx context.Context, req provider.ConfigureReque
 	// errors with provider-specific guidance.
 
 	if len(host) == 0 {
-		AddConfigurationAttributeError(resp, "host", "AAP_HOSTNAME", false)
+		AddConfigurationAttributeError(&resp.Diagnostics, "host", "AAP_HOSTNAME", false)
 	}
 
 	// TODO: handle different auth types here, and we also have error checking further down
 	if len(username) == 0 {
-		AddConfigurationAttributeError(resp, "username", "AAP_USERNAME", false)
+		AddConfigurationAttributeError(&resp.Diagnostics, "username", "AAP_USERNAME", false)
 	}
 
 	if len(password) == 0 {
-		AddConfigurationAttributeError(resp, "password", "AAP_PASSWORD", false)
+		AddConfigurationAttributeError(&resp.Diagnostics, "password", "AAP_PASSWORD", false)
 	}
 
 	if resp.Diagnostics.HasError() {
@@ -177,23 +178,23 @@ type aapProviderModel struct {
 
 func (p *aapProviderModel) checkUnknownValue(resp *provider.ConfigureResponse) {
 	if p.Host.IsUnknown() {
-		AddConfigurationAttributeError(resp, "host", "AAP_HOSTNAME", true)
+		AddConfigurationAttributeError(&resp.Diagnostics, "host", "AAP_HOSTNAME", true)
 	}
 
 	if p.Username.IsUnknown() {
-		AddConfigurationAttributeError(resp, "username", "AAP_USERNAME", true)
+		AddConfigurationAttributeError(&resp.Diagnostics, "username", "AAP_USERNAME", true)
 	}
 
 	if p.Password.IsUnknown() {
-		AddConfigurationAttributeError(resp, "password", "AAP_PASSWORD", true)
+		AddConfigurationAttributeError(&resp.Diagnostics, "password", "AAP_PASSWORD", true)
 	}
 
 	if p.InsecureSkipVerify.IsUnknown() {
-		AddConfigurationAttributeError(resp, "insecure_skip_verify", "AAP_INSECURE_SKIP_VERIFY", true)
+		AddConfigurationAttributeError(&resp.Diagnostics, "insecure_skip_verify", "AAP_INSECURE_SKIP_VERIFY", true)
 	}
 
 	if p.Timeout.IsUnknown() {
-		AddConfigurationAttributeError(resp, "timeout", "AAP_TIMEOUT", true)
+		AddConfigurationAttributeError(&resp.Diagnostics, "timeout", "AAP_TIMEOUT", true)
 	}
 }
 
