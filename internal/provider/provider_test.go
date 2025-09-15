@@ -444,7 +444,7 @@ func TestConfigure(t *testing.T) {
 		name         string
 		configValues map[string]tftypes.Value
 		envVars      map[string]string
-		expectError  bool
+		expectErrors int
 		errorSummary string
 		errorDetail  string
 	}{
@@ -458,9 +458,23 @@ func TestConfigure(t *testing.T) {
 				"insecure_skip_verify": tftypes.NewValue(tftypes.Bool, false),
 				"timeout":              tftypes.NewValue(tftypes.Number, 30),
 			},
-			expectError:  true,
+			expectErrors: 1,
 			errorSummary: "Missing AAP API host",
 			errorDetail:  "AAP_HOSTNAME",
+		},
+		{
+			name: "Missing token",
+			configValues: map[string]tftypes.Value{
+				"host":                 tftypes.NewValue(tftypes.String, "http://localhost"),
+				"username":             tftypes.NewValue(tftypes.String, ""),
+				"password":             tftypes.NewValue(tftypes.String, ""),
+				"token":                tftypes.NewValue(tftypes.String, ""),
+				"insecure_skip_verify": tftypes.NewValue(tftypes.Bool, false),
+				"timeout":              tftypes.NewValue(tftypes.Number, 30),
+			},
+			expectErrors: 3,
+			errorSummary: "Missing AAP API token",
+			errorDetail:  "AAP_TOKEN",
 		},
 		{
 			name: "Missing username",
@@ -472,7 +486,7 @@ func TestConfigure(t *testing.T) {
 				"insecure_skip_verify": tftypes.NewValue(tftypes.Bool, false),
 				"timeout":              tftypes.NewValue(tftypes.Number, 30),
 			},
-			expectError:  true,
+			expectErrors: 1,
 			errorSummary: "Missing AAP API username",
 			errorDetail:  "AAP_USERNAME",
 		},
@@ -486,7 +500,7 @@ func TestConfigure(t *testing.T) {
 				"insecure_skip_verify": tftypes.NewValue(tftypes.Bool, false),
 				"timeout":              tftypes.NewValue(tftypes.Number, 30),
 			},
-			expectError:  true,
+			expectErrors: 1,
 			errorSummary: "Missing AAP API password",
 			errorDetail:  "AAP_PASSWORD",
 		},
@@ -527,9 +541,9 @@ func TestConfigure(t *testing.T) {
 
 			p.Configure(context.TODO(), request, &response)
 
-			actualError := response.Diagnostics.HasError()
-			if actualError != tc.expectError {
-				t.Errorf("Expected errors '%v', actual '%v'", tc.expectError, actualError)
+			actualErrors := response.Diagnostics.ErrorsCount()
+			if actualErrors != tc.expectErrors {
+				t.Errorf("Expected '%v' errors, actual count '%v'", tc.expectErrors, actualErrors)
 			}
 			found := false
 			for _, err := range response.Diagnostics.Errors() {
@@ -538,7 +552,7 @@ func TestConfigure(t *testing.T) {
 					found = true
 				}
 			}
-			if !found && tc.expectError {
+			if !found && tc.expectErrors > 0 {
 				t.Errorf("Did not find error with expected summary '%v', detail containing '%v'. Actual errors %v",
 					tc.errorSummary, tc.errorDetail, response.Diagnostics.Errors())
 			}

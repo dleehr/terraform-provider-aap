@@ -125,10 +125,12 @@ func (p *aapProvider) Configure(ctx context.Context, req provider.ConfigureReque
 	}
 
 	if len(token) == 0 && len(username) == 0 && len(password) == 0 {
-		// No authentication method at all, fail with token recommendation
+		// No authentication method at all, fail with all errors
 		AddConfigurationAttributeError(&resp.Diagnostics, "token", "AAP_TOKEN", false)
+		AddConfigurationAttributeError(&resp.Diagnostics, "username", "AAP_USERNAME", false)
+		AddConfigurationAttributeError(&resp.Diagnostics, "password", "AAP_PASSWORD", false)
 	} else if len(token) == 0 {
-		// No token but must have either username or password here. Check them and add error if either is missing
+		// No token, but may have username and password, report error if either is missing
 		if len(username) == 0 {
 			AddConfigurationAttributeError(&resp.Diagnostics, "username", "AAP_USERNAME", false)
 		}
