@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
@@ -347,14 +348,14 @@ func TestCheckUnknownValue(t *testing.T) {
 
 	for _, tc := range testTable {
 		t.Run(tc.name, func(t *testing.T) {
-			response := provider.ConfigureResponse{}
-			tc.model.checkUnknownValue(&response)
-			actualError := response.Diagnostics.HasError()
+			diags := diag.Diagnostics{}
+			tc.model.checkUnknownValue(&diags)
+			actualError := diags.HasError()
 			if actualError != tc.expectError {
 				t.Errorf("Expected errors '%v', actual '%v'", tc.expectError, actualError)
 			}
 			found := false
-			for _, err := range response.Diagnostics.Errors() {
+			for _, err := range diags.Errors() {
 				if strings.Contains(err.Summary(), tc.errorSummary) &&
 					strings.Contains(err.Detail(), tc.errorDetail) {
 					found = true
@@ -362,7 +363,7 @@ func TestCheckUnknownValue(t *testing.T) {
 			}
 			if !found && tc.expectError {
 				t.Errorf("Did not find error with expected summary '%v', detail containing '%v'. Actual errors %v",
-					tc.errorSummary, tc.errorDetail, response.Diagnostics.Errors())
+					tc.errorSummary, tc.errorDetail, diags.Errors())
 			}
 		})
 	}

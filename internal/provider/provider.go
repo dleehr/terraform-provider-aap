@@ -100,7 +100,7 @@ func (p *aapProvider) Configure(ctx context.Context, req provider.ConfigureReque
 
 	// If practitioner provided a configuration value for any of the
 	// attributes, it must be a known value.
-	config.checkUnknownValue(resp)
+	config.checkUnknownValue(&resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -176,25 +176,25 @@ type aapProviderModel struct {
 	Timeout            types.Int64  `tfsdk:"timeout"`
 }
 
-func (p *aapProviderModel) checkUnknownValue(resp *provider.ConfigureResponse) {
+func (p *aapProviderModel) checkUnknownValue(diags *diag.Diagnostics) {
 	if p.Host.IsUnknown() {
-		AddConfigurationAttributeError(&resp.Diagnostics, "host", "AAP_HOSTNAME", true)
+		AddConfigurationAttributeError(diags, "host", "AAP_HOSTNAME", true)
 	}
 
 	if p.Username.IsUnknown() {
-		AddConfigurationAttributeError(&resp.Diagnostics, "username", "AAP_USERNAME", true)
+		AddConfigurationAttributeError(diags, "username", "AAP_USERNAME", true)
 	}
 
 	if p.Password.IsUnknown() {
-		AddConfigurationAttributeError(&resp.Diagnostics, "password", "AAP_PASSWORD", true)
+		AddConfigurationAttributeError(diags, "password", "AAP_PASSWORD", true)
 	}
 
 	if p.InsecureSkipVerify.IsUnknown() {
-		AddConfigurationAttributeError(&resp.Diagnostics, "insecure_skip_verify", "AAP_INSECURE_SKIP_VERIFY", true)
+		AddConfigurationAttributeError(diags, "insecure_skip_verify", "AAP_INSECURE_SKIP_VERIFY", true)
 	}
 
 	if p.Timeout.IsUnknown() {
-		AddConfigurationAttributeError(&resp.Diagnostics, "timeout", "AAP_TIMEOUT", true)
+		AddConfigurationAttributeError(diags, "timeout", "AAP_TIMEOUT", true)
 	}
 }
 
