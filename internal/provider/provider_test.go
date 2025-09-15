@@ -53,9 +53,18 @@ func testMethodResource(method string, urlPath string) ([]byte, error) {
 	if host == "" {
 		host = os.Getenv("AAP_HOST")
 	}
+
+	// Prefer AAP_TOKEN, fallback to AAP_USERNAME / AAP_PASSWORD
+	token := os.Getenv("AAP_TOKEN")
 	username := os.Getenv("AAP_USERNAME")
 	password := os.Getenv("AAP_PASSWORD")
-	authenticator, diags := NewBasicAuthenticator(&username, &password)
+	var authenticator AAPClientAuthenticator
+	var diags diag.Diagnostics
+	if len(token) > 0 {
+		authenticator, diags = NewTokenAuthenticator(&token)
+	} else {
+		authenticator, diags = NewBasicAuthenticator(&username, &password)
+	}
 	if diags.HasError() {
 		return nil, fmt.Errorf("%v", diags.Errors())
 	}
@@ -95,9 +104,11 @@ func TestReadValues(t *testing.T) {
 		Host               string
 		Username           string
 		Password           string
+		Token              string
 		InsecureSkipVerify bool
 		Timeout            int64
 		Errors             int
+		Warnings           int
 	}{
 		{
 			name:               "No defined values",
@@ -106,12 +117,28 @@ func TestReadValues(t *testing.T) {
 			Host:               "",
 			Username:           "",
 			Password:           "",
+			Token:              "",
 			InsecureSkipVerify: DefaultInsecureSkipVerify,
 			Timeout:            DefaultTimeOut,
 			Errors:             0,
 		},
 		{
-			name:   "Using env variables only",
+			name:   "Using env variables only, with token",
+			config: aapProviderModel{},
+			envVars: map[string]string{
+				"AAP_HOSTNAME":             "https://172.0.0.1:9000",
+				"AAP_TOKEN":                "test-token",
+				"AAP_INSECURE_SKIP_VERIFY": "true",
+				"AAP_TIMEOUT":              "30",
+			},
+			Host:               "https://172.0.0.1:9000",
+			Token:              "test-token",
+			InsecureSkipVerify: true,
+			Timeout:            30,
+			Errors:             0,
+		},
+		{
+			name:   "Using env variables only, with username/password",
 			config: aapProviderModel{},
 			envVars: map[string]string{
 				"AAP_HOSTNAME":             "https://172.0.0.1:9000",
@@ -123,6 +150,7 @@ func TestReadValues(t *testing.T) {
 			Host:               "https://172.0.0.1:9000",
 			Username:           "user988",
 			Password:           "@pass123#",
+			Token:              "",
 			InsecureSkipVerify: true,
 			Timeout:            30,
 			Errors:             0,
@@ -210,11 +238,47 @@ func TestReadValues(t *testing.T) {
 			Timeout:            DefaultTimeOut,
 			Errors:             0,
 		},
+		{
+			name:   "Using env variables for configuration, ignores username/password when token is set",
+			config: aapProviderModel{},
+			envVars: map[string]string{
+				"AAP_HOSTNAME": "https://172.0.0.1:9000",
+				"AAP_USERNAME": "ansible",
+				"AAP_PASSWORD": "testing#$%",
+				"AAP_TOKEN":    "test-token",
+			},
+			Host:               "https://172.0.0.1:9000",
+			Username:           "",
+			Password:           "",
+			Token:              "test-token",
+			InsecureSkipVerify: false,
+			Timeout:            5,
+			Errors:             0,
+		},
+		{
+			name: "Using configuration, ignores username/password when token is set and reports warnings",
+			config: aapProviderModel{
+				Host:     types.StringValue("https://172.0.0.1:9000"),
+				Username: types.StringValue("user988"),
+				Password: types.StringValue("@pass123#"),
+				Token:    types.StringValue("test-token"),
+			},
+			envVars:            map[string]string{},
+			Host:               "https://172.0.0.1:9000",
+			Username:           "",
+			Password:           "",
+			Token:              "test-token",
+			InsecureSkipVerify: false,
+			Timeout:            5,
+			Errors:             0,
+			Warnings:           2,
+		},
 	}
 	var providerEnvVars = []string{
 		"AAP_HOSTNAME",
 		"AAP_HOST",
 		"AAP_USERNAME",
+		"AAP_TOKEN",
 		"AAP_PASSWORD",
 		"AAP_INSECURE_SKIP_VERIFY",
 		"AAP_TIMEOUT",
@@ -247,12 +311,18 @@ func TestReadValues(t *testing.T) {
 				if password != tc.Password {
 					t.Errorf("Password values differ expected=(%s) - computed=(%s)", tc.Password, password)
 				}
+				if token != tc.Token {
+					t.Errorf("Token values differ expected=(%s) - computed=(%s)", tc.Token, token)
+				}
 				if insecureSkipVerify != tc.InsecureSkipVerify {
 					t.Errorf("InsecureSkipVerify values differ expected=(%v) - computed=(%v)", tc.InsecureSkipVerify, insecureSkipVerify)
 				}
 				if timeout != tc.Timeout {
 					t.Errorf("Timeout values differ expected=(%d) - computed=(%d)", tc.Timeout, timeout)
 				}
+			}
+			if tc.Warnings != resp.Diagnostics.WarningsCount() {
+				t.Errorf("Warnings count expected=(%d) - found=(%d)", tc.Warnings, resp.Diagnostics.WarningsCount())
 			}
 		})
 	}

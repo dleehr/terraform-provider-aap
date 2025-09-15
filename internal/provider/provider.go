@@ -229,33 +229,19 @@ func (p *aapProviderModel) ReadValues(host, username, password *string, token *s
 	if *host == "" {
 		*host = os.Getenv("AAP_HOST")
 	}
-	*username = os.Getenv("AAP_USERNAME")
-	*password = os.Getenv("AAP_PASSWORD")
-	*token = os.Getenv("AAP_TOKEN")
-
-	*insecureSkipVerify = DefaultInsecureSkipVerify
-	var err error
 
 	// Read host from user configuration
 	if !p.Host.IsNull() {
 		*host = p.Host.ValueString()
 	}
-	// Read username from user configuration
-	if !p.Username.IsNull() {
-		*username = p.Username.ValueString()
-	}
-	// Read password from user configuration
-	if !p.Password.IsNull() {
-		*password = p.Password.ValueString()
-	}
 
-	// Read token from user configuration
+	*token = os.Getenv("AAP_TOKEN")
 	if !p.Token.IsNull() {
+		// Read token from user configuration
 		*token = p.Token.ValueString()
 	}
 
-	// If token is provided, report a warning if username or password are provided
-	if !p.Token.IsNull() {
+	if len(*token) > 0 {
 		if !p.Username.IsNull() {
 			resp.Diagnostics.AddAttributeWarning(
 				path.Root("username"),
@@ -270,8 +256,24 @@ func (p *aapProviderModel) ReadValues(host, username, password *string, token *s
 				"When token is configured for authentication, password will be ignored. Please remove passworf from your configuration",
 			)
 		}
+	} else {
+		// Token not provided, proceed with username/password
+		*username = os.Getenv("AAP_USERNAME")
+		*password = os.Getenv("AAP_PASSWORD")
+
+		// Read username from user configuration
+		if !p.Username.IsNull() {
+			*username = p.Username.ValueString()
+		}
+		// Read password from user configuration
+		if !p.Password.IsNull() {
+			*password = p.Password.ValueString()
+		}
 	}
 
+	// setting default insecure skip verify value
+	*insecureSkipVerify = DefaultInsecureSkipVerify
+	var err error
 	if !p.InsecureSkipVerify.IsNull() {
 		*insecureSkipVerify = p.InsecureSkipVerify.ValueBool()
 	} else if boolValue := os.Getenv("AAP_INSECURE_SKIP_VERIFY"); boolValue != "" {
