@@ -151,6 +151,11 @@ func (p *aapProvider) Configure(ctx context.Context, req provider.ConfigureReque
 		authenticator, diags = NewBasicAuthenticator(&username, &password)
 	}
 	resp.Diagnostics.Append(diags...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	client, diags := NewClient(host, authenticator, insecureSkipVerify, timeout)
 	resp.Diagnostics.Append(diags...)
 

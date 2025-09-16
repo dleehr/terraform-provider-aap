@@ -27,12 +27,24 @@ var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServe
 	providerName: providerserver.NewProtocol6WithError(New("test")()),
 }
 
+// testAccPreCheck is used by acceptance tests in the PreCheck block.
 func testAccPreCheck(t *testing.T) {
 	requiredAAPEnvVars := map[string]string{
 		"AAP_HOSTNAME":             "https://localhost:8043",
 		"AAP_USERNAME":             "",
 		"AAP_PASSWORD":             "",
 		"AAP_INSECURE_SKIP_VERIFY": "true",
+	}
+
+	_, tokenSet := os.LookupEnv("AAP_TOKEN")
+	if tokenSet {
+		t.Log("'AAP_TOKEN' is set, using token authentication in acceptance tests")
+		// Token is set in environment, use that
+		delete(requiredAAPEnvVars, "AAP_USERNAME")
+		delete(requiredAAPEnvVars, "AAP_PASSWORD")
+		requiredAAPEnvVars["AAP_TOKEN"] = ""
+	} else {
+		t.Log("'AAP_TOKEN' is not set, using basic authentication in acceptance tests")
 	}
 
 	for k, d := range requiredAAPEnvVars {
