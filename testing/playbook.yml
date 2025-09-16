@@ -70,6 +70,13 @@
         playbook: "sleep.yml"
         inventory: "Demo Inventory"
       register: job_template_sleep
+    # To authenticate with a Token, generate one with ansible.controller.token,
+    # which creates a Personal Access Token that supports 2.4+ for controller access.
+    - name: Create a token for token authentication
+      ansible.controller.token:
+        description: "Testing terraform-provider-aap"
+        scope: write
+      register: controller_token
     # The provider acceptance tests are configured to read the IDs of all of these
     # test resources from the environment, so we write a local .env file that exports
     # all of them
