@@ -48,25 +48,30 @@ func (p *aapProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"host": schema.StringAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "AAP Server URL. Can also be configured using the AAP_HOSTNAME environment variable.",
 			},
 			"username": schema.StringAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "Username to use for basic authentication. Ignored if token is set. Can also be configured by setting the AAP_USERNAME environment variable.",
 			},
 			"password": schema.StringAttribute{
-				Optional:  true,
-				Sensitive: true,
+				Optional:    true,
+				Sensitive:   true,
+				Description: "Password to use for basic authentication. Ignored if token is set. Can also be configured by setting the AAP_PASSWORD environment variable.",
 			},
 			"token": schema.StringAttribute{
-				Optional:  true,
-				Sensitive: true,
+				Optional:    true,
+				Sensitive:   true,
+				Description: "Token to use for token authentication. Can also be configured by setting the AAP_TOKEN environment variable.",
 			},
 			"insecure_skip_verify": schema.BoolAttribute{
-				Optional: true,
+				Optional:    true,
+				Description: "If true, configures the provider to skip TLS certificate verification. Can also be configured by setting the AAP_INSECURE_SKIP_VERIFY environment variable.",
 			},
 			"timeout": schema.Int64Attribute{
 				Optional: true,
-				Description: "Timeout specifies a time limit for requests made to the AAP server." +
+				Description: "Timeout specifies a time limit for requests made to the AAP server. " +
 					"Defaults to 5 if not provided. A Timeout of zero means no timeout.",
 			},
 		},
