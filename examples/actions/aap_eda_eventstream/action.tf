@@ -1,3 +1,17 @@
+terraform {
+  required_providers {
+    aap = {
+      source = "ansible/aap"
+    }
+  }
+}
+
+provider "aap" {
+  host     = "https://AAP_HOST"
+  username = "ansible"
+  password = "test123!"
+}
+
 resource "terraform_data" "trigger" {
   input = "%s"
   lifecycle {
