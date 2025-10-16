@@ -633,7 +633,10 @@ func TestRetryUntilAAPJobReachesAnyFinalState_ErrorHandling(t *testing.T) {
 		mockClient.EXPECT().Get("/api/v2/jobs/1/").Return(mockResponse, diag.Diagnostics{})
 
 		var status string
-		retryFunc := retryUntilAAPJobReachesAnyFinalState(t.Context(), mockClient, "/api/v2/jobs/1/", &status)
+		retryProgressFunc := func(status string) {
+			t.Logf("Job status: %s", status)
+		}
+		retryFunc := retryUntilAAPJobReachesAnyFinalState(t.Context(), mockClient, retryProgressFunc, "/api/v2/jobs/1/", &status)
 		err := retryFunc()
 
 		// Should return retryable error since "running" is not a final state
@@ -664,7 +667,10 @@ func TestRetryUntilAAPJobReachesAnyFinalState_ErrorHandling(t *testing.T) {
 		mockClient.EXPECT().Get("/api/v2/jobs/123/").Return(successfulResponse, diag.Diagnostics{}).Times(1)
 
 		var status string
-		retryFunc := retryUntilAAPJobReachesAnyFinalState(t.Context(), mockClient, "/api/v2/jobs/123/", &status)
+		retryProgressFunc := func(status string) {
+			t.Logf("Job status: %s", status)
+		}
+		retryFunc := retryUntilAAPJobReachesAnyFinalState(t.Context(), mockClient, retryProgressFunc, "/api/v2/jobs/123/", &status)
 
 		// First call - job should be running (returns retryable error)
 		err1 := retryFunc()
@@ -735,7 +741,10 @@ func TestRetryUntilAAPJobReachesAnyFinalState_LoggingBehavior(t *testing.T) {
 
 	// Execute the retry function once (should return retryable error since "running" is not final)
 	var status string
-	retryFunc := retryUntilAAPJobReachesAnyFinalState(ctx, mockClient, model.URL.ValueString(), &status)
+	retryProgressFunc := func(status string) {
+		t.Logf("Job status: %s", status)
+	}
+	retryFunc := retryUntilAAPJobReachesAnyFinalState(ctx, mockClient, retryProgressFunc, model.URL.ValueString(), &status)
 	err := retryFunc()
 
 	// Verify we get a retryable error since "running" is not a final state
